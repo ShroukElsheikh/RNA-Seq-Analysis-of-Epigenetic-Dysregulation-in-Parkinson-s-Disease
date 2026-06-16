@@ -136,10 +136,10 @@ Python / Bash scripting
 |---------------|-----------|-----------------|----------------------|
 | ENSMUST00000113331.8 | ⬆️ Upregulated | *Mmp12* | Neuroinflammation, ECM degradation |
 | ENSMUST00000155633.8 | ⬆️ Upregulated | *Dffb* | DNA fragmentation, apoptosis |
-| ENSMUST00000073691.5 | ⬆️ Upregulated | — | Dysregulated in PD |
+| ENSMUST00000073691.5 | ⬆️ Upregulated | *Lima1* | Dysregulated in PD |
 | ENSMUST00000133949.2 | ⬆️ Upregulated | *Atf3* | Antioxidant stress response failure |
 | ENSMUST00000146616.2 | ⬆️ Upregulated | *Hvcn1* | ROS generation, neuroinflammation |
-| ENSMUST00000187347.7 | ⬆️ Upregulated | — | Dysregulated in PD |
+| ENSMUST00000187347.7 | ⬆️ Upregulated | *Ly6c1* | Dysregulated in PD |
 
 ### Volcano Plot
 The volcano plot confirms a small but highly specific set of DEGs meeting strict significance thresholds, with ENSMUST00000113331.8 showing the highest fold change in PD samples. The majority of genes show biologically meaningful changes that do not reach statistical significance, consistent with the limited sample size.
