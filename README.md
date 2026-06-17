@@ -179,8 +179,8 @@ Shrouk_NGS_Assignment/
 
 | Course | Presentation Link | Content |
 |--------|-------------------|---------|
-| 🧬 Omics Course | [View Presentation](https://canva.link/iiqytos7m21agyi) | Downstream analysis: DEG analysis, volcano plot, heatmap, biological interpretation |
 | 🔬 NGS Course | [View Presentation](https://canva.link/yjthpql15c2268h) | Upstream analysis: QC, trimming, alignment, quantification |
+| 🧬 Omics Course | [View Presentation](https://canva.link/iiqytos7m21agyi) | Downstream analysis: DEG analysis, volcano plot, heatmap, biological interpretation |
 
 ---
 
@@ -196,10 +196,10 @@ GEO Dataset: [GSE180408](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE1
 
 ## 👩‍🔬 Author
 
-**Judi Yousri 231002400**
-**Merolla Raafat  231001407** 
-**Shrouk ElSkeikh  231002025**
-**Mohamed Magdy 231000660**
-School of Biotechnology — Nile University
-Bioinformatics Program
+- **Judi Yousri 231002400**
+- **Merolla Raafat  231001407** 
+- **Shrouk ElSkeikh  231002025**
+- **Mohamed Magdy 231000660**
+- School of Biotechnology — Nile University
+- Bioinformatics Program
 
