@@ -224,27 +224,29 @@ hist(as.vector(exp100_DEGS),
 # 3. # 3. Density plot side by side
 par(mfrow = c(1, 2))
 
-# raw data density — FIX: extract only numeric columns first
-exp_agg_numeric = as.matrix(exp_agg)   # already numeric after earlier fix
-exp_agg_numeric = apply(exp_agg_numeric, 2, as.numeric)
+# --- Raw Data ---
+exp_agg_numeric <- exp_agg[, sapply(exp_agg, is.numeric)]
+raw_values <- as.vector(log2(as.matrix(exp_agg_numeric) + 1))
 
-plot(density(as.vector(log2(exp_agg_numeric + 1))),
+plot(density(raw_values),
      main = "Raw Data (log2)",
      xlab = "Expression",
-     col  = "red",
-     lwd  = 2)
-polygon(density(as.vector(log2(exp_agg_numeric + 1))),
-        col    = rgb(1, 0, 0, 0.3),
+     col = "red",
+     lwd = 2)
+polygon(density(raw_values),
+        col = rgb(1, 0, 0, 0.3),
         border = "red")
 
-# processed DEGs density
-plot(density(as.vector(exp50_DEGS)),
-     main = "Processed Top 50 DEGs",
-     xlab = "Z-score Expression",
-     col  = "steelblue",
-     lwd  = 2)
-polygon(density(as.vector(exp50_DEGS)),
-        col    = rgb(0.2, 0.5, 0.8, 0.3),
+# --- Processed DEGs ---
+processed_values <- as.vector(exp100_DEGS)
+
+plot(density(processed_values),
+     main = "Processed DEGs",
+     xlab = "Expression",
+     col = "steelblue",
+     lwd = 2)
+polygon(density(processed_values),
+        col = rgb(0.2, 0.5, 0.8, 0.3),
         border = "steelblue")
 
 par(mfrow = c(1, 1))
