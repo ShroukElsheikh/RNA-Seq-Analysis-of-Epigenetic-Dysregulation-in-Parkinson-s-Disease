@@ -200,6 +200,6 @@ GEO Dataset: [GSE180408](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE1
 - **Merolla Raafat  231001407** 
 - **Shrouk ElSkeikh  231002025**
 - **Mohamed Magdy 231000660**
-- School of Biotechnology — Nile University
-- Bioinformatics Program
+- School of Biotechnology | Bioinformatics Program — Nile University
+
 
