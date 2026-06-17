@@ -1,7 +1,8 @@
 #### used libraries ######
-install.packages(c( "ggfortify","rgl","plot3D","plotly","scatterplot3d"))
+install.packages(c("ggfortify","rgl","plot3D","plotly","scatterplot3d"))
 BiocManager::install(c("genefilter", "ComplexHeatmap", "EnhancedVolcano"))
 BiocManager::install(c("ggplot2", "reshape2"))
+
 library(readr)
 library(DESeq2)
 library(ggfortify)
@@ -18,7 +19,9 @@ library(EnhancedVolcano)
 library(ggplot2)
 library(reshape2)
 
-##### load the mRNA-Seq data #####
+#===================================================#
+#            LOAD THE mRNA-Seq DATA                 #
+#===================================================#
 
 exp <- read_excel("GSE180408_raw_count.xlsx")
 
@@ -28,145 +31,183 @@ exp_matrix = exp[, -1]
 exp_matrix = as.data.frame(lapply(exp_matrix, as.numeric))
 exp_matrix = as.matrix(exp_matrix)
 
-exp = cbind(id , exp_matrix)
+exp = cbind(id, exp_matrix)
 
+#===================================================#
+#         CHECK & HANDLE DUPLICATE GENES            #
+#===================================================#
 
-######## check duplicates of gene symbol #######
-sum(duplicated(exp[, "gene_id"]))
-######## aggregate of duplicated proteins ######3
-exp_agg= aggregate(exp, list(exp$gene_id),FUN=mean)
-genes = exp_agg[1] # save gene names
-exp_agg = exp_agg[,-c(1,2)] # remove unnecessary columns
+cat("Number of duplicated genes:", sum(duplicated(exp[, "gene_id"])), "\n")
 
-exp_agg = apply(exp_agg , 2, as.numeric) # apply the function to each column of the matrix
-exp_agg = cbind(exp_agg , genes) # add the gene column back to the dataset
-rownames(exp_agg) = exp_agg$Group.1 # set gene names as row names 
-exp_agg = exp_agg[-7]
+# Aggregate duplicates by mean
+exp_agg = aggregate(exp, list(exp$gene_id), FUN = mean)
+genes = exp_agg[1]                  # save gene names
+exp_agg = exp_agg[, -c(1, 2)]      # remove unnecessary columns
 
-########### load mRNA sample sheet #######
-# Create the metadata table
+exp_agg = apply(exp_agg, 2, as.numeric)
+exp_agg = cbind(exp_agg, genes)
+rownames(exp_agg) = exp_agg$Group.1
+exp_agg = exp_agg[-7]              # remove gene name column
+
+#===================================================#
+#              LOAD SAMPLE METADATA                 #
+#===================================================#
+
 pheno <- data.frame(
-  name = c("GSM5462402", "GSM5462403", "GSM5462404", "GSM5462405", "GSM5462406", "GSM5462407"),
-  type = c("Control", "Control", "Control", "Treatment", "Treatment", "Treatment"),
-  row.names = 1 # This makes the 'name' column the row names
+  name = c("GSM5462402", "GSM5462403", "GSM5462404",
+           "GSM5462405", "GSM5462406", "GSM5462407"),
+  type = c("Control", "Control", "Control",
+           "Treatment", "Treatment", "Treatment"),
+  row.names = 1
 )
 
-# Convert 'type' to a factor (Crucial for DESeq2)
+# Convert type to factor — crucial for DESeq2
 pheno$type <- as.factor(pheno$type)
 
-exp_agg = exp_agg[rowMeans(exp_agg)>1,]
+# Filter low expression genes
+exp_agg = exp_agg[rowMeans(exp_agg) > 1, ]
 
-############## exploratory analysis on raw expression matrix ###########
-# 1. boxplot
+#===================================================#
+#        EXPLORATORY ANALYSIS — RAW DATA            #
+#===================================================#
+
+# 1. Boxplot — Raw data
 boxplot(log2(exp_agg + 1),
-        main = "RNA-Seq Box Plot",
+        main = "RNA-Seq Box Plot (Raw)",
+        xlab = "Samples",
+        ylab = "log2(count + 1)",
         col = seq_len(ncol(exp_agg)))
 
-# transpose data to prepare it to PCA
+# Transpose for PCA
 exp_t = t(exp_agg)
-dim(exp_t)
+cat("Dimensions after transpose:", dim(exp_t), "\n")
 
-# 2. 2D PCA
+# 2. 2D PCA — Raw data
 exp.pca = prcomp(exp_t, center = TRUE, scale. = TRUE)
 summary(exp.pca)
-colnames(pheno)[colnames(pheno) == "Sample_Id"] <- "type"
+
 colnames(pheno)[1] <- "type"
-autoplot(exp.pca, data = pheno, colour = 'type')
+autoplot(exp.pca, data = pheno, colour = 'type',
+         main = "2D PCA — Raw Data")
 
 exp = t(exp_t)
 
-# 3. 3D PCA
+# 3. 3D PCA — Raw data
 pca_scores = as.data.frame(exp.pca$x)
-
 mycolors = ifelse(pheno$type == "Control", "blue", "red")
 
-plot3d(pca_scores[,1:3],
+plot3d(pca_scores[, 1:3],
        pch = 20,
        col = mycolors,
-       radius = 2)
+       radius = 2,
+       main = "3D PCA — Raw Data")
 
 exp.count = round(exp)
 
+#===================================================#
+#           IMPUTE MISSING VALUES (ZEROS)           #
+#===================================================#
 
-############### impute the missing values mean ##############
-# Calculate the proportion of zeros in each row
+# Calculate proportion of zeros per gene (row)
 prop_zeros <- rowSums(exp == 0) / ncol(exp)
-# Identify rows with less than 40% zeros
+
+# Keep genes with < 40% zeros
 rows_to_fill <- which(prop_zeros < 0.4)
 imputed_genes = rows_to_fill
-# Calculate the row means for these rows
+
+# Replace zeros with row mean
 row_means <- rowMeans(exp[rows_to_fill, ], na.rm = TRUE)
-# Replace the zeros in these rows with the row means and remove others rows
 exp[rows_to_fill, ][exp[rows_to_fill, ] == 0] <- row_means
-exp = exp[imputed_genes,]
+
+exp = exp[imputed_genes, ]
 exp.count = round(exp)
 
-############### Differential expression analysis using DESeq2 #########
+cat("Genes after imputation:", nrow(exp.count), "\n")
+
+#===================================================#
+#       DIFFERENTIAL EXPRESSION — DESeq2            #
+#===================================================#
+
 table(pheno$type)
 
-dds = DESeqDataSetFromMatrix(countData = exp.count , colData = pheno , design = ~type)
+dds = DESeqDataSetFromMatrix(countData = exp.count,
+                             colData = pheno,
+                             design = ~type)
 dds.run = DESeq(dds)
 
-res=results(dds.run)
-res=res[complete.cases(res),]
+res = results(dds.run)
+res = res[complete.cases(res), ]
 
-########### make contrasts (comparisons between all conditions) ########
+# Explicit contrast: Treatment vs Control
 contrast1 = results(dds.run, contrast = c("type", "Treatment", "Control"))
 contrast1 = contrast1[complete.cases(contrast1), ]
 contrast1 = as.data.frame(contrast1)
 
-############# get the DEGs based on adj pval , LFC ############
+#===================================================#
+#     FIXED: GET DEGs (padj + LFC filter)        #
+#===================================================#
+
 res.df = as.data.frame(res)
 
+# Step 1: remove NAs
 res.degs = res.df[!is.na(res.df$padj), ]
 
-# filter by adjusted p-value
+# Step 2: filter by adjusted p-value
 res.degs = res.degs[res.degs$padj < 0.05, ]
 
-# filter by absolute LFC >= 1.5
+# Step 3: filter by LFC >= 1.5
 res.degs = res.degs[abs(res.degs$log2FoldChange) >= 1.5, ]
 
-# fallback if still empty
+# Step 4: smart fallback — relax LFC if needed
 if(nrow(res.degs) == 0){
-  res.degs = res.df[order(res.df$pvalue), ]
+  message("No DEGs at LFC >= 1.5, relaxing to LFC >= 1.0")
+  res.degs = res.df[!is.na(res.df$padj), ]
+  res.degs = res.degs[res.degs$padj < 0.05, ]
+  res.degs = res.degs[abs(res.degs$log2FoldChange) >= 1.0, ]
 }
 
-# fallback if still empty
+# Step 5: last resort fallback
 if(nrow(res.degs) == 0){
-  res.degs = res.df[order(res.df$pvalue), ]
+  message("Still no DEGs — using top 50 by pvalue as fallback")
+  res.degs = res.df[order(res.df$pvalue), ][1:50, ]
 }
+
+# Step 6: report
+cat("Total DEGs:", nrow(res.degs), "\n")
+cat(" Upregulated:", sum(res.degs$log2FoldChange > 0), "\n")
+cat(" Ownregulated:", sum(res.degs$log2FoldChange < 0), "\n")
 
 degs.genes = rownames(res.degs)
 
-############# do normalization for all exp data to further analysis ########
+#===================================================#
+#              NORMALIZATION                        #
+#===================================================#
+
 ntd = normTransform(dds)
 exp.norm = assay(ntd)
 
 exp.degs = exp.norm[degs.genes, , drop = FALSE]
 
-############### creating a heatmap for the top 100 DEG genes #####
-exp.degs = exp.norm[degs.genes, , drop = FALSE]
+#===================================================#
+#         HEATMAP — TOP 100 DEGs                    #
+#===================================================#
 
-# SAFE top genes
+# Safe top N genes
 topN = min(100, nrow(exp.degs))
 exp100_DEGS = exp.degs[1:topN, , drop = FALSE]
 
-# remove NA
+# Remove NA rows
 exp100_DEGS = exp100_DEGS[complete.cases(exp100_DEGS), ]
 
-# scaling
+# Z-score scaling per gene
 exp100_DEGS = t(scale(t(exp100_DEGS)))
 
-
-# FIX: sample alignment
-exp.degs = exp.norm[degs.genes, , drop = FALSE]
-
-# prevent empty matrix
-if(nrow(exp.degs) == 0){
+# Safety check
+if(nrow(exp100_DEGS) == 0){
   stop("No DEGs found — relax filtering thresholds")
 }
 
-
+# Plot heatmap
 column_ha = HeatmapAnnotation(sample.type = pheno$type)
 
 Heatmap(exp100_DEGS,
@@ -175,62 +216,84 @@ Heatmap(exp100_DEGS,
         column_names_gp = gpar(fontsize = 10),
         top_annotation = column_ha)
 
-
-############### 2D PCA #############
+#===================================================#
+#         2D PCA — PROCESSED DEGs                   #
+#===================================================#
 
 expression_t = t(exp100_DEGS)
 
-# safety check (VERY IMPORTANT)
+# Safety check
 if(nrow(expression_t) < 2){
-  stop("Not enough genes for PCA — DEG filtering too strict or empty set")
+  stop("Not enough genes for PCA — DEG filtering too strict")
 }
 
 expression.pca = prcomp(expression_t, center = TRUE, scale. = TRUE)
-
 summary(expression.pca)
-autoplot(expression.pca, data = pheno, colour = 'type')
 
+autoplot(expression.pca, data = pheno, colour = 'type',
+         main = "2D PCA — Processed DEGs")
 
-############### 3D PCA ##########
+#===================================================#
+#         3D PCA — PROCESSED DEGs                   #
+#===================================================#
+
 pca_scores = as.data.frame(expression.pca$x)
-
 mycolors = ifelse(pheno$type == "Control", "blue", "red")
 
-plot3d(pca_scores[,1:3],
+plot3d(pca_scores[, 1:3],
        pch = 20,
        col = mycolors,
        type = 's',
-       radius = 0.5)
+       radius = 0.5,
+       main = "3D PCA — Processed DEGs")
 
-############### Volcano plot ##########
+#===================================================#
+#    FIXED: VOLCANO PLOT (padj, matches DEGs)    #
+#===================================================#
 
 EnhancedVolcano(res.df,
                 lab = rownames(res.df),
                 x = 'log2FoldChange',
-                y = 'pvalue',
-                pCutoff = 0.05,
-                FCcutoff = 1.5,
-                colAlpha = 0.8)
+                y = 'padj',              
+                pCutoff = 0.05,          
+                FCcutoff = 1.5,          
+                colAlpha = 0.8,
+                title = 'Treatment vs Control',
+                subtitle = paste0('DEGs: ', nrow(res.degs),
+                                  '  (Up: ', sum(res.degs$log2FoldChange > 0),
+                                  '  Down: ', sum(res.degs$log2FoldChange < 0), ')'),
+                caption = 'padj < 0.05  |  |LFC| >= 1.5')
 
-# 1. boxplot
+#===================================================#
+#       QC PLOTS — PROCESSED DEGs                   #
+#===================================================#
+
+# 1. Boxplot — Processed
 boxplot(exp100_DEGS,
-        main = "processed genes Box Plot",
+        main = "Processed DEGs — Box Plot",
+        xlab = "Samples",
+        ylab = "Scaled Expression",
         col = seq_len(ncol(exp100_DEGS)))
 
-# 2. histogram
+# 2. Histogram — Processed
 hist(as.vector(exp100_DEGS),
-     main = "processed genes Histogram")
+     main = "Processed DEGs — Histogram",
+     xlab = "Scaled Expression",
+     col = "lightblue",
+     border = "white")
 
-# 3. # 3. Density plot side by side
+# 3. Density Plot — Raw vs Processed (side by side)
 par(mfrow = c(1, 2))
 
 # --- Raw Data ---
+# FIXED: extract only numeric columns
 exp_agg_numeric <- exp_agg[, sapply(exp_agg, is.numeric)]
 raw_values <- as.vector(log2(as.matrix(exp_agg_numeric) + 1))
 
 plot(density(raw_values),
      main = "Raw Data (log2)",
      xlab = "Expression",
+     ylab = "Density",
      col = "red",
      lwd = 2)
 polygon(density(raw_values),
@@ -242,7 +305,8 @@ processed_values <- as.vector(exp100_DEGS)
 
 plot(density(processed_values),
      main = "Processed DEGs",
-     xlab = "Expression",
+     xlab = "Scaled Expression",
+     ylab = "Density",
      col = "steelblue",
      lwd = 2)
 polygon(density(processed_values),
@@ -250,3 +314,4 @@ polygon(density(processed_values),
         border = "steelblue")
 
 par(mfrow = c(1, 1))
+
